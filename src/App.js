@@ -5,7 +5,9 @@ import {
   FormControl,
   Select,
   Card,
-  CardContent
+  CardContent,
+  Tabs,
+  Tab
 } from '@mui/material'
 
 import { sortData, prettyPrintStat } from './util';
@@ -14,6 +16,7 @@ import LineGraph from './components/LineGraph';
 import Table from './components/Table';
 import InfoBox from './components/InfoBox';
 import Map from './components/Map';
+import HealthIndicators from './components/HealthIndicators';
 
 import './App.css'
 import "leaflet/dist/leaflet.css";
@@ -24,12 +27,13 @@ function App() {
   const [country, setCountry] = useState('worldwide');
   const [countryInfo, setCountryInfo] = useState({});
   const [tableData, setTableData] = useState([]);
-  // Padronizado como array [lat, lng], que é o formato aceito pelo react-leaflet
   const [mapCenter, setMapCenter] = useState([34.80746, -40.4796]);
   const [mapZoom, setMapZoom] = useState(3);
   const [mapCountries, setMapCountries] = useState([]);
   const [casesType, setCasesType] = useState("cases");
   const [error, setError] = useState(null);
+  // Aba ativa: "covid" (dados históricos 2020-2023) ou "health" (OMS, dados atuais)
+  const [activeTab, setActiveTab] = useState('covid');
 
   useEffect(() => {
     const fetchAllCountries = async () => {
@@ -67,7 +71,6 @@ function App() {
         setMapCenter([34.80746, -40.4796]);
         setMapZoom(3);
       } else if (data?.countryInfo?.lat && data?.countryInfo?.long) {
-        // Correção: era "lgn" (typo), o campo correto retornado pela API é "long"
         setMapCenter([data.countryInfo.lat, data.countryInfo.long]);
         setMapZoom(4);
       }
@@ -87,6 +90,7 @@ function App() {
         const countriesList = data.map((country) => ({
           name: country.country,
           value: country.countryInfo.iso2, // UK, USA, FR
+          iso3: country.countryInfo.iso3,  // usado pela API da OMS (GHO)
         }));
 
         setTableData(sortData(data));
@@ -102,72 +106,100 @@ function App() {
   }, []);
 
   return (
-    <div className="app">
-      <div className="app__left">
-        <div className='app__header'>
-          <h1>Covid 19 🦠</h1>
-          <FormControl className="app__dropdown">
-            <Select
-              variant="outlined"
-              value={country}
-              onChange={handleCountryChange}
-            >
-              <MenuItem value="worldwide">Worldwide</MenuItem>
-              {countries?.map(({ name }, idx) => (
-                <MenuItem
-                  key={idx}
-                  value={name}
-                >
-                  {name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </div>
-
-        {error && <p className="app__error">{error}</p>}
-
-        <div className='app__stats'>
-          <InfoBox
-            isRed
-            active={casesType === 'cases'}
-            onClick={() => setCasesType('cases')}
-            title="Casos de coronavírus"
-            cases={prettyPrintStat(countryInfo.todayCases)}
-            total={numeral(countryInfo.cases).format("0.0a")}
-          />
-          <InfoBox
-            active={casesType === 'recovered'}
-            onClick={() => setCasesType('recovered')}
-            title="Recuperações"
-            cases={prettyPrintStat(countryInfo.todayRecovered)}
-            total={numeral(countryInfo.recovered).format("0.0a")}
-          />
-          <InfoBox
-            active={casesType === 'deaths'}
-            onClick={() => setCasesType('deaths')}
-            title="Mortes"
-            isRed
-            cases={prettyPrintStat(countryInfo.todayDeaths)}
-            total={numeral(countryInfo.deaths).format("0.0a")}
-          />
-        </div>
-        <Map
-          center={mapCenter}
-          zoom={mapZoom}
-          countries={mapCountries}
-          casesType={casesType}
-        />
+    <div className="app-wrapper">
+      <div className="app-tabs">
+        <Tabs
+          value={activeTab}
+          onChange={(e, value) => setActiveTab(value)}
+          centered
+        >
+          <Tab value="covid" label="COVID-19 (Histórico)" />
+          <Tab value="health" label="Saúde Global (OMS)" />
+        </Tabs>
       </div>
 
-      <Card className="app__right">
-        <CardContent>
-          <h3>Acompanhe casos por país.</h3>
-          <Table countries={tableData} />
-          <h3 className='app__graphTitle'>Novos casos no mundo — {casesType}</h3>
-          <LineGraph className="app_graph" casesType={casesType} />
-        </CardContent>
-      </Card>
+      {activeTab === 'covid' ? (
+        <div className="app">
+          <div className="app__left">
+            <div className='app__header'>
+              <h1>Covid 19 🦠</h1>
+              <FormControl className="app__dropdown">
+                <Select
+                  variant="outlined"
+                  value={country}
+                  onChange={handleCountryChange}
+                >
+                  <MenuItem value="worldwide">Worldwide</MenuItem>
+                  {countries?.map(({ name }, idx) => (
+                    <MenuItem
+                      key={idx}
+                      value={name}
+                    >
+                      {name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </div>
+
+            {/* Aviso importante: a JHU (fonte original destes dados) parou de
+                coletar casos/mortes de COVID em 10/03/2023. Não existe hoje
+                uma fonte que atualize esses números diariamente — por isso o
+                painel é tratado como um arquivo histórico, não um "ao vivo". */}
+            <p className="app__historicalNote">
+              📌 Dados históricos (Johns Hopkins University), congelados em 10/03/2023 —
+              não há atualização diária de casos de COVID desde então.
+            </p>
+
+            {error && <p className="app__error">{error}</p>}
+
+            <div className='app__stats'>
+              <InfoBox
+                isRed
+                active={casesType === 'cases'}
+                onClick={() => setCasesType('cases')}
+                title="Casos de coronavírus"
+                cases={prettyPrintStat(countryInfo.todayCases)}
+                total={numeral(countryInfo.cases).format("0.0a")}
+              />
+              <InfoBox
+                active={casesType === 'recovered'}
+                onClick={() => setCasesType('recovered')}
+                title="Recuperações"
+                cases={prettyPrintStat(countryInfo.todayRecovered)}
+                total={numeral(countryInfo.recovered).format("0.0a")}
+              />
+              <InfoBox
+                active={casesType === 'deaths'}
+                onClick={() => setCasesType('deaths')}
+                title="Mortes"
+                isRed
+                cases={prettyPrintStat(countryInfo.todayDeaths)}
+                total={numeral(countryInfo.deaths).format("0.0a")}
+              />
+            </div>
+            <Map
+              center={mapCenter}
+              zoom={mapZoom}
+              countries={mapCountries}
+              casesType={casesType}
+            />
+          </div>
+
+          <Card className="app__right">
+            <CardContent>
+              <h3>Acompanhe casos por país.</h3>
+              <Table countries={tableData} />
+              <h3 className='app__graphTitle'>Novos casos no mundo — {casesType}</h3>
+              <LineGraph className="app_graph" casesType={casesType} />
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="app-health-wrapper">
+          <HealthIndicators countries={countries} />
+        </div>
+      )}
     </div>
   );
 }

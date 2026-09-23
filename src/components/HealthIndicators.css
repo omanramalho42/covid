@@ -1,0 +1,53 @@
+.health {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 20px;
+  padding: 1.5rem 2rem 2rem;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+}
+
+.health__title {
+  margin-bottom: 0.25rem;
+}
+
+.health__source {
+  color: #6c757d;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.health__tabs {
+  margin-bottom: 1rem;
+  border-bottom: 1px solid #eee;
+}
+
+.health__controls {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.health__select {
+  min-width: 240px;
+}
+
+.health__chartWrapper {
+  height: 350px;
+  position: relative;
+}
+
+.health__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.health__error {
+  color: #6c757d;
+  text-align: center;
+  margin-top: 2rem;
+}
