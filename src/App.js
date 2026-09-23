@@ -24,67 +24,82 @@ function App() {
   const [country, setCountry] = useState('worldwide');
   const [countryInfo, setCountryInfo] = useState({});
   const [tableData, setTableData] = useState([]);
-  const [mapCenter, setMapCenter] = useState(
-    { lat: 34.80746, lng: -40.4796 }
-  );
+  // Padronizado como array [lat, lng], que é o formato aceito pelo react-leaflet
+  const [mapCenter, setMapCenter] = useState([34.80746, -40.4796]);
   const [mapZoom, setMapZoom] = useState(3);
   const [mapCountries, setMapCountries] = useState([]);
   const [casesType, setCasesType] = useState("cases");
-  
+  const [error, setError] = useState(null);
+
   useEffect(() => {
     const fetchAllCountries = async () => {
-      await fetch("https://disease.sh/v3/covid-19/all")
-      .then(res => res.json())
-      .then(data => {
+      try {
+        const res = await fetch("https://disease.sh/v3/covid-19/all");
+        if (!res.ok) throw new Error(`Erro ${res.status} ao buscar dados globais`);
+        const data = await res.json();
         setCountryInfo(data);
-      })
-    }
+      } catch (err) {
+        console.error(err);
+        setError("Não foi possível carregar os dados globais.");
+      }
+    };
 
-    fetchAllCountries();  
-  },[]);
+    fetchAllCountries();
+  }, []);
 
   const handleCountryChange = async (event) => {
-    // event.preventDefault();
-
     const countryCode = event.target.value;
-    setCountry(countryCode);
 
-    const url = 
-      countryCode === 'worldwide' 
-      ? 'https://disease.sh/v3/covid-19/all' 
-      : `https://disease.sh/v3/covid-19/countries/${countryCode}`
+    const url =
+      countryCode === 'worldwide'
+        ? 'https://disease.sh/v3/covid-19/all'
+        : `https://disease.sh/v3/covid-19/countries/${countryCode}`;
 
-    await fetch(url)
-      .then(res => res.json())
-      .then(data => {
-        setCountry(countryCode);
-        setCountryInfo(data);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Erro ${res.status} ao buscar dados de ${countryCode}`);
+      const data = await res.json();
 
-        setMapCenter([data.countryInfo.lat, data.countryInfo.lgn]);
+      setCountry(countryCode);
+      setCountryInfo(data);
+
+      if (countryCode === 'worldwide') {
+        setMapCenter([34.80746, -40.4796]);
+        setMapZoom(3);
+      } else if (data?.countryInfo?.lat && data?.countryInfo?.long) {
+        // Correção: era "lgn" (typo), o campo correto retornado pela API é "long"
+        setMapCenter([data.countryInfo.lat, data.countryInfo.long]);
         setMapZoom(4);
-      });
-  }
+      }
+    } catch (err) {
+      console.error(err);
+      setError(`Não foi possível carregar dados de ${countryCode}.`);
+    }
+  };
 
   useEffect(() => {
     const getCountriesData = async () => {
-      await fetch('https://disease.sh/v3/covid-19/countries')
-        .then((res) => res.json())
-        .then((data) => {
-          const countries = data.map((country) => ({
-            name: country.country,
-            value: country.countryInfo.iso2, //UK, USA, FR
-          }));
-          let sortedData = sortData(data);
-          setTableData(sortedData);
-          setMapCountries(data);
-          setCountries(countries);
-        });
-    };
-    
-    getCountriesData();
-  },[]);
+      try {
+        const res = await fetch('https://disease.sh/v3/covid-19/countries');
+        if (!res.ok) throw new Error(`Erro ${res.status} ao buscar países`);
+        const data = await res.json();
 
-  // console.log(casesType);
+        const countriesList = data.map((country) => ({
+          name: country.country,
+          value: country.countryInfo.iso2, // UK, USA, FR
+        }));
+
+        setTableData(sortData(data));
+        setMapCountries(data);
+        setCountries(countriesList);
+      } catch (err) {
+        console.error(err);
+        setError("Não foi possível carregar a lista de países.");
+      }
+    };
+
+    getCountriesData();
+  }, []);
 
   return (
     <div className="app">
@@ -99,57 +114,57 @@ function App() {
             >
               <MenuItem value="worldwide">Worldwide</MenuItem>
               {countries?.map(({ name }, idx) => (
-                <MenuItem 
+                <MenuItem
                   key={idx}
                   value={name}
                 >
-                  { name }
+                  {name}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
         </div>
 
+        {error && <p className="app__error">{error}</p>}
 
         <div className='app__stats'>
           <InfoBox
             isRed
             active={casesType === 'cases'}
-            onClick={(e) => setCasesType('cases')}
-            title="Casos de coronavírus" 
-            cases={prettyPrintStat(countryInfo.todayCases)} 
-            total={numeral(countryInfo.cases).format("0.0a")} 
+            onClick={() => setCasesType('cases')}
+            title="Casos de coronavírus"
+            cases={prettyPrintStat(countryInfo.todayCases)}
+            total={numeral(countryInfo.cases).format("0.0a")}
           />
-          <InfoBox 
+          <InfoBox
             active={casesType === 'recovered'}
-            onClick={(e) => setCasesType('recovered')}
-            title="Recuperações" 
-            cases={prettyPrintStat(countryInfo.todayRecovered)} 
-            total={numeral(countryInfo.recovered).format("0.0a")} 
+            onClick={() => setCasesType('recovered')}
+            title="Recuperações"
+            cases={prettyPrintStat(countryInfo.todayRecovered)}
+            total={numeral(countryInfo.recovered).format("0.0a")}
           />
           <InfoBox
             active={casesType === 'deaths'}
-            onClick={(e) => setCasesType('deaths')} 
+            onClick={() => setCasesType('deaths')}
             title="Mortes"
             isRed
-            cases={prettyPrintStat(countryInfo.todayDeaths)} 
-            total={numeral(countryInfo.deaths).format("0.0a")} 
-          />          
+            cases={prettyPrintStat(countryInfo.todayDeaths)}
+            total={numeral(countryInfo.deaths).format("0.0a")}
+          />
         </div>
-        <Map 
+        <Map
           center={mapCenter}
           zoom={mapZoom}
           countries={mapCountries}
           casesType={casesType}
         />
-
       </div>
 
       <Card className="app__right">
         <CardContent>
-          <h3>Acompoanhe Casos por país.</h3>
+          <h3>Acompanhe casos por país.</h3>
           <Table countries={tableData} />
-          <h3 className='app__graphTitle'>Novos casos no mundo {casesType} </h3>
+          <h3 className='app__graphTitle'>Novos casos no mundo — {casesType}</h3>
           <LineGraph className="app_graph" casesType={casesType} />
         </CardContent>
       </Card>

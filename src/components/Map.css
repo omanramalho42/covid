@@ -4,12 +4,13 @@
   padding: 1rem;
   border-radius: 20px;
   margin-top: 16px;
-  box-shadow: 0 0 8px -4px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
 }
 
 .map .leaflet-container {
   height: 100%;
   border-radius: 12px;
+  background-color: #f5f6fa;
 }
 
 .info-flag img {
